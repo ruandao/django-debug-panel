@@ -2,3 +2,4 @@
 MANIFEST
 /dist/
 /django_debug_panel.egg-info/
+.idea/
