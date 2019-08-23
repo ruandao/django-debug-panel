@@ -14,7 +14,7 @@ Installation
 
    .. code-block:: bash
 
-    pip install django-debug-panel
+    pip install -U git+https://github.com/ruandao/django-debug-panel#egg=debug_panel
 
 #. Add ``debug_panel`` to your ``INSTALLED_APPS`` setting:
 
@@ -45,6 +45,8 @@ Installation
         ...
     )
 
+
+#. Wranning. you should add your ip to ``INTERNAL_IPS`` for debug
 
 #. (Optional) Configure your cache.
    All the debug data of a request are stored into the cache backend ``debug-panel``
