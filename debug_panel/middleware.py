@@ -12,6 +12,12 @@ from django.conf import settings
 from debug_panel.cache import cache
 import debug_toolbar.middleware
 
+from django.utils.lru_cache import lru_cache
+from debug_toolbar import settings as dt_settings
+from django.utils import six
+from django.utils.module_loading import import_string
+from debug_toolbar.toolbar import DebugToolbar
+
 # the urls patterns that concern only the debug_panel application
 import debug_panel.urls
 
@@ -28,7 +34,40 @@ def show_toolbar(request):
 debug_toolbar.middleware.show_toolbar = show_toolbar
 
 
-class DebugPanelMiddleware(debug_toolbar.middleware.DebugToolbarMiddleware):
+@lru_cache()
+def get_show_toolbar():
+    # If SHOW_TOOLBAR_CALLBACK is a string, which is the recommended
+    # setup, resolve it to the corresponding callable.
+    func_or_path = dt_settings.get_config()["SHOW_TOOLBAR_CALLBACK"]
+    if isinstance(func_or_path, six.string_types):
+        return import_string(func_or_path)
+    else:
+        return func_or_path
+
+class SupportAjaxDebugToolbarMiddleware(debug_toolbar.middleware.DebugToolbarMiddleware):
+
+    def process_request(self, request):
+        # Decide whether the toolbar is active for this request.
+        show_toolbar = get_show_toolbar()
+        if not show_toolbar(request):
+            return
+
+        toolbar = DebugToolbar(request)
+        self.__class__.debug_toolbars[threading.current_thread().ident] = toolbar
+
+        # Activate instrumentation ie. monkey-patch.
+        for panel in toolbar.enabled_panels:
+            panel.enable_instrumentation()
+
+        # Run process_request methods of panels like Django middleware.
+        response = None
+        for panel in toolbar.enabled_panels:
+            response = panel.process_request(request)
+            if response:
+                break
+        return response
+
+class DebugPanelMiddleware(SupportAjaxDebugToolbarMiddleware):
     """
     Middleware to set up Debug Panel on incoming request and render toolbar
     on outgoing response.
